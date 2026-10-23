@@ -1,0 +1,58 @@
+# dsh-plugin-antigravity-quota bundle patch
+- insert:
+    - id: dsh-plugin-antigravity-quota
+      name: dsh-plugin-antigravity-quota
+
+- id: llm-pi-ai
+  config:
+    providers:
+      antigravity:
+        displayName: Google Antigravity (AI Pro)
+        apiKeyEnv: ANTIGRAVITY_API_KEY
+        api: openai-completions
+        baseURL: http://127.0.0.1:8317/v1
+        defaultInput: [ text, image ]
+        compat:
+          supportsDeveloperRole: false
+          maxTokensField: max_tokens
+        models:
+          - id: claude-opus-4-6-thinking
+            name: Claude Opus 4.6 Thinking (Antigravity)
+            contextWindow: 200000
+            maxTokens: 32768
+            input: [ text, image ]
+          - id: claude-sonnet-4-6
+            name: Claude Sonnet 4.6 (Antigravity)
+            contextWindow: 200000
+            maxTokens: 32768
+            input: [ text, image ]
+          - id: gemini-3.8-flash-high
+            name: Gemini 3.8 Flash High (Antigravity)
+            contextWindow: 1000000
+            maxTokens: 32768
+            input: [ text, image ]
+          - id: gemini-pro-agent
+            name: Gemini Pro Agent (Antigravity)
+            contextWindow: 1000000
+            maxTokens: 32768
+            input: [ text, image ]
+          - id: gemini-3.7-flash-high
+            name: Gemini 3.7 Flash High (Antigravity)
+            contextWindow: 1000000
+            maxTokens: 32768
+            input: [ text, image ]
+          - id: gemini-3-flash
+            name: Gemini 3 Flash (Antigravity)
+            contextWindow: 1000000
+            maxTokens: 32768
+            input: [ text, image ]
+          - id: gemini-3.1-pro-low
+            name: Gemini 3.1 Pro Low (Antigravity)
+            contextWindow: 1000000
+            maxTokens: 32768
+            input: [ text, image ]
+          - id: gpt-oss-120b-medium
+            name: GPT-OSS 120B Medium (Antigravity)
+            contextWindow: 128000
+            maxTokens: 16384
+            input: [ text ]
