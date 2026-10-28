@@ -29,8 +29,10 @@ $lockedProcesses = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue
 })
 if ($lockedProcesses.Count -gt 0) { throw 'The active-profile bridge or cli-proxy-api is still running. Close DSH and retry; no files were copied.' }
 
-$backupRoot = "$targetRoot.backup-$(Get-Date -Format yyyyMMdd-HHmmss)"
-Copy-Item -LiteralPath $targetRoot -Destination $backupRoot -Recurse
+$backupDir = Join-Path $env:LOCALAPPDATA 'AGUnlocker\backups'
+New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+$backupRoot = Join-Path $backupDir "dsh-plugin-antigravity-quota.backup-$(Get-Date -Format yyyyMMdd-HHmmss)"
+Copy-Item -LiteralPath $targetRoot -Destination $backupRoot -Recurse -Force
 
 # Clean copy: exclude git metadata, tests, and temporary backup artifacts
 $excludeItems = @('.git', 'tests', '*.bak*', '*.backup-*', '*.clean-bak*', 'node_modules')

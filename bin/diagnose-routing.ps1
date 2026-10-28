@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Continue'
 $expectedProxyUrl = 'http://127.0.0.1:53130'
-$configPath = Join-Path $PSScriptRoot 'config.yaml'
+$runtimeConfigPath = Join-Path $env:LOCALAPPDATA 'AGUnlocker\runtime-config.yaml'
+$configPath = if (Test-Path $runtimeConfigPath) { $runtimeConfigPath } else { Join-Path $PSScriptRoot 'config.yaml' }
 $homePath = [Environment]::GetFolderPath('UserProfile')
 $authDir = Join-Path $homePath '.cli-proxy-api'
 $vaultDir = Join-Path (Join-Path $homePath '.dsh') 'antigravity-vault'

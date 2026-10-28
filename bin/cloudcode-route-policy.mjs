@@ -154,22 +154,31 @@ function isKnownRouteId(routeId) {
   return getAllCloudCodeRoutes().some((route) => route.id === routeId)
 }
 
+const DIRECT_SYSTEM_FAILURE_COOLDOWN_MS = 45 * 1000
+
 /** Returns confirmed generation rejections kept separately from a transport probe. */
 export function readCloudCodeRouteHealth() {
   try {
     const parsed = JSON.parse(fs.readFileSync(ROUTE_HEALTH_PATH, 'utf8').replace(/^\uFEFF/u, ''))
-    const locationRejected = Object.fromEntries(
-      Object.entries(parsed.locationRejected || {}).filter(([routeId, value]) =>
-        isKnownRouteId(routeId) && value && value.reason === 'location-not-supported' && typeof value.at === 'string'
-      )
-    )
     const now = Date.now()
+    const locationRejected = Object.fromEntries(
+      Object.entries(parsed.locationRejected || {}).filter(([routeId, value]) => {
+        if (!isKnownRouteId(routeId) || !value || value.reason !== 'location-not-supported' || typeof value.at !== 'string') return false
+        // direct-system location ban expires quickly (45s) so turning on VPN recovers Auto immediately
+        if (routeId === 'direct-system') {
+          const atMs = Date.parse(value.at)
+          return Number.isFinite(atMs) && (now - atMs < DIRECT_SYSTEM_FAILURE_COOLDOWN_MS)
+        }
+        return true
+      })
+    )
     const routeFailures = Object.fromEntries(
       Object.entries(parsed.routeFailures || {}).filter(([routeId, value]) => {
         if (!isKnownRouteId(routeId) || !value || value.reason !== 'tls-failed' || typeof value.at !== 'string') return false
         const failedAt = Date.parse(value.at)
         const age = now - failedAt
-        return Number.isFinite(failedAt) && age >= -5 * 60 * 1000 && age < ROUTE_FAILURE_COOLDOWN_MS
+        const ttl = routeId === 'direct-system' ? DIRECT_SYSTEM_FAILURE_COOLDOWN_MS : ROUTE_FAILURE_COOLDOWN_MS
+        return Number.isFinite(failedAt) && age >= -5 * 60 * 1000 && age < ttl
       }).map(([routeId, value]) => [routeId, { reason: 'tls-failed', at: value.at }])
     )
     return { locationRejected, routeFailures }

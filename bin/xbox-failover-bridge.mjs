@@ -12,7 +12,7 @@ import { buildCloudCodeRoutePlan, CLOUD_CODE_ROUTES, SMART_DOH_ROUTES, AUTO_ROUT
 
 // Parent PID & Companion Watchdog: terminates orphan background bridge when DSH shuts down
 const parentPid = Number(process.env.DSH_PARENT_PID || process.ppid)
-const companionPid = Number(process.env.CLI_PROXY_PID || 0)
+let companionPid = Number(process.env.CLI_PROXY_PID || 0)
 
 function isProcessAlive(pid) {
   if (!pid || pid <= 4) return false
@@ -69,8 +69,9 @@ export function detectRoutingLoop(targetUrl, clientSocket) {
   const history = (connectBurstWindow.get(targetHost) || []).filter((t) => now - t < 500)
   history.push(now)
   connectBurstWindow.set(targetHost, history)
-  if (history.length > 8) {
-    return { loop: true, reason: `Cascade CONNECT storm (>8 reqs/500ms) for ${targetHost}` }
+  // Threshold of 20 allows concurrent multi-account quota polling while stopping real recursive loop storms in <15ms
+  if (history.length > 20) {
+    return { loop: true, reason: `Cascade CONNECT storm (>20 reqs/500ms) for ${targetHost}` }
   }
   return { loop: false }
 }
@@ -893,6 +894,22 @@ const server = http.createServer(async (req, res) => {
   if (origin || (secFetchSite && secFetchSite !== 'none' && secFetchSite !== 'same-origin')) {
     res.writeHead(403, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ ok: false, error: 'Cross-origin browser requests to local bridge are forbidden' }))
+    return
+  }
+
+  if (req.method === 'POST' && req.url === '/companion-pid') {
+    try {
+      const body = await readReportBody(req)
+      const newCompanionPid = Number(body?.pid || 0)
+      if (newCompanionPid > 4) {
+        companionPid = newCompanionPid
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true, companionPid }))
+    } catch {
+      res.writeHead(400, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false }))
+    }
     return
   }
 
