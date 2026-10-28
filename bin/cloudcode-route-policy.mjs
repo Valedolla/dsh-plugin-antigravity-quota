@@ -7,8 +7,6 @@ export const CLOUD_CODE_ROUTES = [
   { id: 'karing-proxy', kind: 'proxy', name: 'Karing Full Proxy', host: '127.0.0.1', port: 3066, protocol: 'socks5' },
   { id: 'geohide-eu-doh', kind: 'smart-resolver', name: 'GeoHide EU Smart DNS', url: 'https://eu.geohide.ru/dns-query', bootstrapIps: ['5.175.161.3', '5.175.161.40', '37.221.93.141', '37.221.93.128', '45.13.237.213', '31.25.239.132', '143.20.64.192'], region: 'EU', hostnameFirst: true, parallelBootstrap: true },
   { id: 'geohide-us-doh', kind: 'smart-resolver', name: 'GeoHide US Smart DNS', url: 'https://us.geohide.ru/dns-query', bootstrapIps: ['192.255.159.240', '192.255.159.241', '107.175.76.134', '192.3.233.253'], region: 'US' },
-  { id: 'doh-comss', kind: 'resolver', name: 'Comss.one DNS', url: 'https://dns.comss.one/dns-query' },
-  { id: 'doh-wlrus', kind: 'resolver', name: 'WLRUS DNS', url: 'https://dns.wlrus.cfd/dns-query' },
   { id: 'direct-system', kind: 'direct-system', name: 'Direct System (VPN/Zapret)' },
   { id: 'ag-dns', kind: 'local-proxy', name: 'ag_dns (local)', host: '127.0.0.1' },
 ]
@@ -16,8 +14,8 @@ export const CLOUD_CODE_ROUTES = [
 export const DOH_RESOLVERS = CLOUD_CODE_ROUTES.filter((route) => route.kind === 'resolver')
 export const SMART_DOH_ROUTES = CLOUD_CODE_ROUTES.filter((route) => route.kind === 'smart-resolver')
 
-// Try GeoHide EU Smart DNS first, then GeoHide US, stable DoH fallbacks, and direct-system for active VPN/Zapret users.
-export const AUTO_ROUTE_IDS = ['geohide-eu-doh', 'geohide-us-doh', 'doh-comss', 'doh-wlrus', 'direct-system']
+// Try GeoHide EU Smart DNS first, then GeoHide US, and direct-system for active VPN/Zapret users.
+export const AUTO_ROUTE_IDS = ['geohide-eu-doh', 'geohide-us-doh', 'direct-system']
 
 const ROUTE_PREFERENCE_PATH = process.env.ANTIGRAVITY_ROUTE_PREFERENCE_PATH || path.join(os.homedir(), 'AppData', 'Local', 'AGUnlocker', 'cloudcode-route.json')
 const ROUTE_HEALTH_PATH = process.env.ANTIGRAVITY_ROUTE_HEALTH_PATH || path.join(os.homedir(), 'AppData', 'Local', 'AGUnlocker', 'cloudcode-route-health.json')
@@ -306,7 +304,7 @@ export function getCloudCodeRouteOptions() {
       ? ' - исключён из Auto на 6 ч: TLS-сбой'
       : ''
   return [
-    { id: 'auto', label: 'Авто (GeoHide EU → GeoHide US → Comss.one → WLRUS → Direct VPN)' },
+    { id: 'auto', label: 'Авто (GeoHide EU → GeoHide US → Direct VPN)' },
     ...allRoutes.map((route) => {
       const suffix = suffixFor(route)
       const customBadge = route.custom ? ' [Свой]' : ''
