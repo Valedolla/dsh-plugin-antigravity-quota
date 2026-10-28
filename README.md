@@ -44,15 +44,21 @@ xbox-failover-bridge :53130 ── (Диспетчер маршрутов)
 
 ## Установка и обновление
 
-### Вариант 1. Установка из архива
+### Быстрая установка в 1 клик (Рекомендуется)
 
-1. Скачайте архив релиза (`dsh-plugin-antigravity-quota-1.6.0.tgz` или `.zip`) со страницы [Releases](../../releases).
-2. Закройте DeepSeek Harness.
-3. Распакуйте содержимое архива в каталог:
+1. Скачайте архив релиза (`.zip`) со страницы [Releases](../../releases) и распакуйте в любое удобное место.
+2. Закройте **DeepSeek Harness**.
+3. Запустите двойным кликом **`install.bat`** (или выполните команду `powershell -ExecutionPolicy Bypass -File bin\install-active-profile.ps1`).
+4. Скрипт сам снимет блокировку SmartScreen (Mark-of-the-Web), скопирует файлы в профиль DSH и зарегистрирует плагин в `package.json`.
+5. Запустите DeepSeek Harness — виджет появится в правом нижнем углу интерфейса.
+
+### Ручная установка
+
+1. Распакуйте архив релиза в каталог:
    ```text
    C:\Users\<Имя_Пользователя>\.dsh\profiles\desktop\node_modules\dsh-plugin-antigravity-quota
    ```
-4. Убедитесь, что в файле `~/.dsh/profiles/desktop/package.json` плагин указан в `dependencies` и `dsh.profile.bundles`:
+2. Убедитесь, что в файле `~/.dsh/profiles/desktop/package.json` плагин указан в `dependencies` и `dsh.profile.bundles`:
    ```json
    {
      "dependencies": {
@@ -67,14 +73,7 @@ xbox-failover-bridge :53130 ── (Диспетчер маршрутов)
      }
    }
    ```
-5. Запустите DeepSeek Harness.
-
-### Вариант 2. Обновление через скрипт
-
-При наличии установленной предыдущей версии выполните команду:
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "bin\install-active-profile.ps1"
-```
+3. Запустите DeepSeek Harness.
 
 ## Проверка статуса
 

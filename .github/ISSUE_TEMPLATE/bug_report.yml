@@ -1,0 +1,50 @@
+name: "Сбой подключения / Ошибка маршрутизации"
+description: "Сообщить о проблеме с квотами, маршрутами Smart DNS/SOCKS5 или запуском моста"
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Безопасность:** Скрипт `diagnose-routing.ps1` и файл `last-incident.json` **не содержат** ваших OAuth-токенов, паролей или email-адресов.
+
+  - type: dropdown
+    id: route-mode
+    attributes:
+      label: "Активный режим маршрута в виджете"
+      options:
+        - "Auto (GeoHide EU -> US -> Direct)"
+        - "GeoHide EU Smart DNS"
+        - "GeoHide US Smart DNS"
+        - "Karing SOCKS5 (127.0.0.1:3066)"
+        - "Custom Route (Свой SOCKS5 / DoH)"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: env-stack
+    attributes:
+      label: "Какие средства обхода блокировок / антивирусы запущены на ПК?"
+      options:
+        - label: "Zapret (winws.exe)"
+        - label: "GoodbyeDPI / ByeDPI"
+        - label: "Karing / Nekoray / v2rayN / Clash (в режиме Системного прокси)"
+        - label: "Karing / AmneziaWG / Sing-box (в режиме TUN / VPN на всю систему)"
+        - label: "Сторонний антивирус (Kaspersky, Dr.Web, ESET и др.)"
+        - label: "Кастомная сборка Windows (ReviOS, AtlasOS, LTSC)"
+
+  - type: textarea
+    id: diagnose-output
+    attributes:
+      label: "Вывод скрипта bin\\diagnose-routing.ps1"
+      description: "Выполните в PowerShell: powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"bin\\diagnose-routing.ps1\" и вставьте результат сюда"
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: last-incident
+    attributes:
+      label: "Содержимое файла last-incident.json (если есть)"
+      description: "Находится в %LOCALAPPDATA%\\AGUnlocker\\logs\\last-incident.json"
+      render: json
