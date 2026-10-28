@@ -2,6 +2,14 @@ node_modules/
 *.log
 *.sqlite
 *.bak*
-*.tmp
+*.tmp*
+*.backup-*
+*.clean-bak*
+*.tgz
+*.zip
+dist/
 .DS_Store
 Thumbs.db
+bin/cli-proxy-api.exe
+bin/cli-proxy-api-console.exe
+bin/ag_dns_real.exe

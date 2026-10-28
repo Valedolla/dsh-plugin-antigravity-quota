@@ -63,6 +63,24 @@ foreach ($item in $sourceItems) {
     Copy-Item -Path $item.FullName -Destination $targetRoot -Recurse -Force
 }
 
+# Auto-download core binaries from GitHub Releases if missing (enables lightweight <1MB git repo)
+$cliExeTarget = Join-Path (Join-Path $targetRoot 'bin') 'cli-proxy-api.exe'
+if (-not (Test-Path $cliExeTarget)) {
+    Write-Output "Core binaries missing in source. Downloading from official release v$expectedVersion..."
+    $binUrl = "https://github.com/Valedolla/dsh-plugin-antigravity-quota/releases/download/v$expectedVersion/antigravity-binaries-win-x64.zip"
+    $tempZip = Join-Path $env:TEMP "antigravity-binaries-$expectedVersion.zip"
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+        Invoke-WebRequest -Uri $binUrl -OutFile $tempZip -UseBasicParsing
+        $targetBinDir = Join-Path $targetRoot 'bin'
+        Expand-Archive -Path $tempZip -DestinationPath $targetBinDir -Force
+        Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
+        Write-Output "Core binaries successfully downloaded and placed into bin/."
+    } catch {
+        Write-Warning "Auto-download of binaries failed: $($_.Exception.Message). Ensure you have internet connection or download antigravity-binaries-win-x64.zip manually."
+    }
+}
+
 # Remove Zone.Identifier (Mark-of-the-Web) from browser-downloaded files to prevent SmartScreen blocking
 Get-ChildItem -Path $targetRoot -Recurse -File -ErrorAction SilentlyContinue |
     Unblock-File -ErrorAction SilentlyContinue
