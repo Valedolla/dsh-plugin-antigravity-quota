@@ -51,7 +51,7 @@ test('manual route plans contain only the selected route', () => {
 test('Auto falls back in the declared order and excludes unsafe ag_dns', () => {
   const unsafe = policy.buildCloudCodeRoutePlan('auto', false).map((route) => route.id)
   const safe = policy.buildCloudCodeRoutePlan('auto', true).map((route) => route.id)
-  const expected = ['geohide-eu-doh', 'geohide-us-doh', 'doh-comss', 'doh-wlrus']
+  const expected = ['geohide-eu-doh', 'geohide-us-doh', 'doh-comss', 'doh-wlrus', 'direct-system']
   assert.deepEqual(unsafe, expected)
   assert.deepEqual(safe, expected)
   assert.ok(!unsafe.some((id) => ['geohide-88', 'geohide-68', 'geohide-67'].includes(id)))
@@ -185,7 +185,7 @@ test('bridge status starts without a fabricated successful route', async (contex
   assert.ok(status, stderr)
   assert.equal(status.activeRoute, null)
   assert.equal(status.lastApiResult, null)
-  assert.deepEqual(status.autoRouteIds, ['geohide-eu-doh', 'geohide-us-doh', 'doh-comss', 'doh-wlrus'])
+  assert.deepEqual(status.autoRouteIds, ['geohide-eu-doh', 'geohide-us-doh', 'doh-comss', 'doh-wlrus', 'direct-system'])
   assert.equal(status.bridgeBuildId, 'dsh-antigravity-unified-connect-v7')
   const report = await request(port, 'POST', '/route-result', JSON.stringify({ routeId: 'doh-comss', ok: true }))
   assert.equal(report.statusCode, 400)

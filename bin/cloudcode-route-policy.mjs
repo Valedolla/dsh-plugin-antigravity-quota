@@ -9,14 +9,15 @@ export const CLOUD_CODE_ROUTES = [
   { id: 'geohide-us-doh', kind: 'smart-resolver', name: 'GeoHide US Smart DNS', url: 'https://us.geohide.ru/dns-query', bootstrapIps: ['192.255.159.240', '192.255.159.241', '107.175.76.134', '192.3.233.253'], region: 'US' },
   { id: 'doh-comss', kind: 'resolver', name: 'Comss.one DNS', url: 'https://dns.comss.one/dns-query' },
   { id: 'doh-wlrus', kind: 'resolver', name: 'WLRUS DNS', url: 'https://dns.wlrus.cfd/dns-query' },
+  { id: 'direct-system', kind: 'direct-system', name: 'Direct System (VPN/Zapret)' },
   { id: 'ag-dns', kind: 'local-proxy', name: 'ag_dns (local)', host: '127.0.0.1' },
 ]
 
 export const DOH_RESOLVERS = CLOUD_CODE_ROUTES.filter((route) => route.kind === 'resolver')
 export const SMART_DOH_ROUTES = CLOUD_CODE_ROUTES.filter((route) => route.kind === 'smart-resolver')
 
-// Try GeoHide EU Smart DNS first, then GeoHide US, followed by stable DoH fallbacks.
-export const AUTO_ROUTE_IDS = ['geohide-eu-doh', 'geohide-us-doh', 'doh-comss', 'doh-wlrus']
+// Try GeoHide EU Smart DNS first, then GeoHide US, stable DoH fallbacks, and direct-system for active VPN/Zapret users.
+export const AUTO_ROUTE_IDS = ['geohide-eu-doh', 'geohide-us-doh', 'doh-comss', 'doh-wlrus', 'direct-system']
 
 const ROUTE_PREFERENCE_PATH = process.env.ANTIGRAVITY_ROUTE_PREFERENCE_PATH || path.join(os.homedir(), 'AppData', 'Local', 'AGUnlocker', 'cloudcode-route.json')
 const ROUTE_HEALTH_PATH = process.env.ANTIGRAVITY_ROUTE_HEALTH_PATH || path.join(os.homedir(), 'AppData', 'Local', 'AGUnlocker', 'cloudcode-route-health.json')
@@ -296,13 +297,14 @@ export function getCloudCodeRouteOptions() {
       ? ' - исключён из Auto на 6 ч: TLS-сбой'
       : ''
   return [
-    { id: 'auto', label: 'Авто (GeoHide EU → GeoHide US → Comss.one → WLRUS)' },
+    { id: 'auto', label: 'Авто (GeoHide EU → GeoHide US → Comss.one → WLRUS → Direct VPN)' },
     ...allRoutes.map((route) => {
       const suffix = suffixFor(route)
       const customBadge = route.custom ? ' [Свой]' : ''
       if (route.kind === 'proxy') return { id: route.id, label: `${route.name}${customBadge} — SOCKS5 ${route.host}:${route.port}${suffix}` }
       if (route.kind === 'smart-resolver') return { id: route.id, label: `${route.name}${customBadge} — проксирующий DoH, регион ${route.region || 'EU/US'}${suffix}` }
       if (route.kind === 'resolver') return { id: route.id, label: `${route.name}${customBadge} — DoH-резолвер (не egress-прокси)${suffix}` }
+      if (route.kind === 'direct-system') return { id: route.id, label: `${route.name} — прямой выход (при активном VPN/Zapret)${suffix}` }
       if (route.kind === 'local-proxy') return { id: route.id, label: `ag_dns — локальный прокси (только при безопасном gate)${suffix}` }
       return { id: route.id, label: `${route.name}${customBadge}${suffix}` }
     }),

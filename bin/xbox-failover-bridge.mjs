@@ -691,6 +691,14 @@ async function establishFailoverTunnel(targetHostPort, diagnosticId = null) {
         if (route.kind === 'proxy') socket = await connectViaKaringProxy(route, targetHostPort, 4000)
         else if (route.kind === 'gateway') socket = await connectViaGeoHideSni(route.host, 443, 2200)
         else if (route.kind === 'resolver' || route.kind === 'smart-resolver') socket = await connectViaDohResolver(route, host, port, route.kind === 'smart-resolver' ? 4500 : 3000)
+        else if (route.kind === 'direct-system') {
+          socket = await new Promise((resolve, reject) => {
+            const s = net.connect({ host, port, family: 4 })
+            const t = setTimeout(() => { s.destroy(); reject(new Error('Direct system connection timeout')) }, 3000)
+            s.once('connect', () => { clearTimeout(t); resolve(s) })
+            s.once('error', (e) => { clearTimeout(t); reject(e) })
+          })
+        }
         else if (route.kind === 'relay') socket = await connectViaXboxRelay(route, targetHostPort, 3000)
         else if (route.kind === 'local-proxy') socket = await connectViaAgDns(targetHostPort, 2200)
         else throw new Error(`Unsupported Cloud Code route kind: ${route.kind}`)
