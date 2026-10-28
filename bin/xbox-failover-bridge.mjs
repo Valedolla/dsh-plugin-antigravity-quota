@@ -7,7 +7,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { randomBytes } from 'node:crypto'
 import { connectViaSocks5Proxy } from './socks5-proxy.mjs'
-import { buildCloudCodeRoutePlan, CLOUD_CODE_ROUTES, SMART_DOH_ROUTES, AUTO_ROUTE_IDS, readCloudCodeRouteHealth, readCloudCodeRoutePreference, recordCloudCodeRouteGenerationResult } from './cloudcode-route-policy.mjs'
+import { buildCloudCodeRoutePlan, CLOUD_CODE_ROUTES, SMART_DOH_ROUTES, AUTO_ROUTE_IDS, readCloudCodeRouteHealth, readCloudCodeRoutePreference, recordCloudCodeRouteGenerationResult, recordIncidentSnapshot, readIncidentSnapshot, getAllCloudCodeRoutes, readCustomRoutes } from './cloudcode-route-policy.mjs'
 
 const LISTEN_PORT = Number(process.env.ANTIGRAVITY_BRIDGE_PORT || 53130)
 const LEGACY_AG_DNS_PORT = Number(process.env.ANTIGRAVITY_BRIDGE_COMPAT_PORT || 53129)
@@ -386,6 +386,16 @@ function recordRouteFailure(route, error) {
     message: String(error?.message || error).slice(0, 300),
     at: new Date().toISOString(),
   }
+  recordIncidentSnapshot({
+    event: 'ROUTE_CONNECTION_FAILED',
+    routeId: route?.id || null,
+    routeLabel: route?.name || null,
+    target: 'daily-cloudcode-pa.googleapis.com:443',
+    stage: 'ESTABLISH_FAILOVER_TUNNEL',
+    errorType: error?.code || 'TCP_CONNECT_OR_TLS_FAIL',
+    errorMessage: describeError(error),
+    suggestedAction: `Connection to route ${route?.id} failed. Rotating to subsequent candidate in failover plan.`,
+  })
 }
 
 function isAgDnsSafeToUse() {
@@ -638,6 +648,7 @@ function bridgeStatus() {
     lastRouteFailure,
     lastDiagnosticConnect,
     agDnsSafe: isAgDnsSafeToUse(),
+    lastIncident: readIncidentSnapshot(),
   }
 }
 
@@ -708,7 +719,8 @@ function timedOutGeoHideProbe(route, results = []) {
 }
 
 async function probeGeoHideSmartDoh(routeId) {
-  const route = SMART_DOH_ROUTES.find((item) => item.id === routeId)
+  const allRoutes = getAllCloudCodeRoutes()
+  const route = allRoutes.find((item) => item.id === routeId)
   if (!route) throw new Error(`GeoHide Smart DNS route is not configured: ${routeId}`)
   const runProbe = async () => {
     const endpointHost = new URL(route.url).hostname
@@ -842,6 +854,12 @@ const server = http.createServer(async (req, res) => {
   if (req.url === '/healthz' || req.url === '/status') {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify(bridgeStatus()))
+    return
+  }
+  if (req.url === '/last-incident') {
+    const inc = readIncidentSnapshot()
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+    res.end(JSON.stringify({ ok: true, incident: inc }))
     return
   }
   res.writeHead(200, { 'Content-Type': 'text/plain' })

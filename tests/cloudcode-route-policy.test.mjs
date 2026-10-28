@@ -45,13 +45,13 @@ test('manual route plans contain only the selected route', () => {
   assert.deepEqual(policy.buildCloudCodeRoutePlan('geohide-us-doh', true).map((route) => route.id), ['geohide-us-doh'])
   assert.deepEqual(policy.buildCloudCodeRoutePlan('geohide-eu-doh', true).map((route) => route.id), ['geohide-eu-doh'])
   assert.deepEqual(policy.buildCloudCodeRoutePlan('karing-proxy', true).map((route) => route.id), ['karing-proxy'])
-  assert.deepEqual(policy.buildCloudCodeRoutePlan('geohide-68', true).map((route) => route.id), ['geohide-68'])
+  assert.deepEqual(policy.buildCloudCodeRoutePlan('doh-wlrus', true).map((route) => route.id), ['doh-wlrus'])
 })
 
 test('Auto falls back in the declared order and excludes unsafe ag_dns', () => {
   const unsafe = policy.buildCloudCodeRoutePlan('auto', false).map((route) => route.id)
   const safe = policy.buildCloudCodeRoutePlan('auto', true).map((route) => route.id)
-  const expected = ['geohide-eu-doh', 'geohide-us-doh', 'doh-comss', 'doh-router-comss', 'doh-bezmezhau', 'doh-wlrus']
+  const expected = ['geohide-eu-doh', 'geohide-us-doh', 'doh-comss', 'doh-wlrus']
   assert.deepEqual(unsafe, expected)
   assert.deepEqual(safe, expected)
   assert.ok(!unsafe.some((id) => ['geohide-88', 'geohide-68', 'geohide-67'].includes(id)))
@@ -65,42 +65,42 @@ test('unsafe manual ag_dns is rejected instead of silently falling back', () => 
 })
 
 test('a confirmed generation region rejection removes a route only from Auto', () => {
-  policy.recordCloudCodeRouteGenerationResult('geohide-88', {
+  policy.recordCloudCodeRouteGenerationResult('doh-comss', {
     ok: false,
     shortStatus: 'HTTP 400',
     status: 'Google returned HTTP 400 FAILED_PRECONDITION',
   })
-  assert.ok(!policy.readCloudCodeRouteHealth().locationRejected['geohide-88'])
+  assert.ok(!policy.readCloudCodeRouteHealth().locationRejected['doh-comss'])
   // This is the sanitized payload actually stored/reported by the bridge. The
   // classifier label is emitted only after the generation response matches location text.
-  policy.recordCloudCodeRouteGenerationResult('geohide-88', {
+  policy.recordCloudCodeRouteGenerationResult('doh-comss', {
     ok: false,
     shortStatus: '400 location',
     status: 'Google rejected the Gemini request with a location/eligibility error',
   })
-  assert.ok(policy.readCloudCodeRouteHealth().locationRejected['geohide-88'])
-  assert.ok(!policy.buildCloudCodeRoutePlan('auto', false).some((route) => route.id === 'geohide-88'))
-  assert.deepEqual(policy.buildCloudCodeRoutePlan('geohide-88', false).map((route) => route.id), ['geohide-88'])
-  policy.recordCloudCodeRouteGenerationResult('geohide-88', { ok: true, shortStatus: 'Gemini OK', status: 'Cloud Code 200 OK' })
-  assert.ok(!policy.readCloudCodeRouteHealth().locationRejected['geohide-88'])
+  assert.ok(policy.readCloudCodeRouteHealth().locationRejected['doh-comss'])
+  assert.ok(!policy.buildCloudCodeRoutePlan('auto', false).some((route) => route.id === 'doh-comss'))
+  assert.deepEqual(policy.buildCloudCodeRoutePlan('doh-comss', false).map((route) => route.id), ['doh-comss'])
+  policy.recordCloudCodeRouteGenerationResult('doh-comss', { ok: true, shortStatus: 'Gemini OK', status: 'Cloud Code 200 OK' })
+  assert.ok(!policy.readCloudCodeRouteHealth().locationRejected['doh-comss'])
 })
 
 test('a real TLS generation failure temporarily excludes its route from Auto but not manual selection', () => {
-  policy.recordCloudCodeRouteGenerationResult('doh-comss', {
+  policy.recordCloudCodeRouteGenerationResult('doh-wlrus', {
     ok: false,
     shortStatus: 'TLS/error',
     status: 'TLS/connection error during Gemini request',
   })
-  assert.equal(policy.readCloudCodeRouteHealth().routeFailures['doh-comss'].reason, 'tls-failed')
-  assert.ok(!policy.buildCloudCodeRoutePlan('auto', false).some((route) => route.id === 'doh-comss'))
-  assert.deepEqual(policy.buildCloudCodeRoutePlan('geohide-68', false).map((route) => route.id), ['geohide-68'])
-  assert.match(policy.getCloudCodeRouteOptions().find((option) => option.id === 'doh-comss').label, /исключён из Auto на 6 ч/)
-  policy.recordCloudCodeRouteGenerationResult('doh-comss', {
+  assert.equal(policy.readCloudCodeRouteHealth().routeFailures['doh-wlrus'].reason, 'tls-failed')
+  assert.ok(!policy.buildCloudCodeRoutePlan('auto', false).some((route) => route.id === 'doh-wlrus'))
+  assert.deepEqual(policy.buildCloudCodeRoutePlan('doh-wlrus', false).map((route) => route.id), ['doh-wlrus'])
+  assert.match(policy.getCloudCodeRouteOptions().find((option) => option.id === 'doh-wlrus').label, /исключён из Auto на 6 ч/)
+  policy.recordCloudCodeRouteGenerationResult('doh-wlrus', {
     ok: true,
     shortStatus: 'Gemini generation OK',
     status: 'HTTP 200: real Gemini generation succeeded',
   })
-  assert.ok(!policy.readCloudCodeRouteHealth().routeFailures['doh-comss'])
+  assert.ok(!policy.readCloudCodeRouteHealth().routeFailures['doh-wlrus'])
 })
 
 test('route health reader tolerates a Windows UTF-8 BOM', () => {
@@ -115,7 +115,7 @@ test('temporary TLS failures expire after the cooldown', () => {
   const health = policy.readCloudCodeRouteHealth()
   fs.writeFileSync(healthPath, JSON.stringify({
     locationRejected: health.locationRejected,
-    routeFailures: { 'geohide-68': { reason: 'tls-failed', at: new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString() } },
+    routeFailures: { 'doh-wlrus': { reason: 'tls-failed', at: new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString() } },
   }))
   assert.ok(!policy.readCloudCodeRouteHealth().routeFailures['doh-comss'])
   assert.ok(policy.buildCloudCodeRoutePlan('auto', false).some((route) => route.id === 'doh-comss'))
@@ -123,10 +123,10 @@ test('temporary TLS failures expire after the cooldown', () => {
 
 test('route preference round-trips and the UI exposes resolvers distinctly', () => {
   assert.equal(policy.readCloudCodeRoutePreference(), 'auto')
-  assert.equal(policy.writeCloudCodeRoutePreference('doh-router-comss').route, 'doh-router-comss')
-  assert.equal(policy.readCloudCodeRoutePreference(), 'doh-router-comss')
+  assert.equal(policy.writeCloudCodeRoutePreference('doh-wlrus').route, 'doh-wlrus')
+  assert.equal(policy.readCloudCodeRoutePreference(), 'doh-wlrus')
   const options = policy.getCloudCodeRouteOptions()
-  assert.ok(options.some((option) => option.id === 'geohide-88'))
+  assert.ok(options.some((option) => option.id === 'geohide-eu-doh'))
   assert.match(options.find((option) => option.id === 'karing-proxy').label, /SOCKS5 127\.0\.0\.1:3066/) 
   assert.match(options.find((option) => option.id === 'doh-comss').label, /не egress-прокси/)
   assert.match(options.find((option) => option.id === 'geohide-us-doh').label, /проксирующий DoH/)
@@ -185,9 +185,9 @@ test('bridge status starts without a fabricated successful route', async (contex
   assert.ok(status, stderr)
   assert.equal(status.activeRoute, null)
   assert.equal(status.lastApiResult, null)
-  assert.deepEqual(status.autoRouteIds, ['geohide-eu-doh', 'geohide-us-doh', 'doh-comss', 'doh-router-comss', 'doh-bezmezhau', 'doh-wlrus'])
+  assert.deepEqual(status.autoRouteIds, ['geohide-eu-doh', 'geohide-us-doh', 'doh-comss', 'doh-wlrus'])
   assert.equal(status.bridgeBuildId, 'dsh-antigravity-unified-connect-v7')
-  const report = await request(port, 'POST', '/route-result', JSON.stringify({ routeId: 'geohide-88', ok: true }))
+  const report = await request(port, 'POST', '/route-result', JSON.stringify({ routeId: 'doh-comss', ok: true }))
   assert.equal(report.statusCode, 400)
 })
 

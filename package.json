@@ -1,42 +1,42 @@
 {
-  "name": "dsh-plugin-antigravity-quota",
-  "version": "1.5.1",
-  "description": "Antigravity quota plugin with GeoHide EU/US smart DNS probes and bounded diagnostics.",
-  "type": "module",
-  "main": "lib/index.js",
-  "scripts": {
-    "test": "node --test tests/*.test.mjs"
-  },
-  "files": [
-    "lib",
-    "bin",
-    "cordis.patch.yml",
-    "package.json",
-    "README.md",
-    "locale/*.json"
-  ],
-  "exports": {
-    ".": "./lib/index.js",
-    "./client": "./lib/client.js",
-    "./cordis.patch.yml": "./cordis.patch.yml",
-    "./package.json": "./package.json",
-    "./locale/*.json": "./locale/*.json"
-  },
-  "dsh": {
-    "bundle": {
-      "patch": "./cordis.patch.yml"
-    },
-    "client": {
-      "platform": "web",
-      "inject": [
-        "@deepseek-ai/dsh-client-ui-renderer",
-        "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-ui-model-selection",
-        "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-ui-plugin-manager",
-        "@deepseek-ai/dsh-client-ui-settings-plugins"
-      ]
-    }
-  },
-  "license": "MIT"
+    "name":  "dsh-plugin-antigravity-quota",
+    "version":  "1.6.0",
+    "description":  "Antigravity quota plugin with GeoHide EU/US smart DNS probes and bounded diagnostics.",
+    "type":  "module",
+    "main":  "lib/index.js",
+    "scripts":  {
+                    "test":  "node --test tests/*.test.mjs"
+                },
+    "files":  [
+                  "lib",
+                  "bin",
+                  "cordis.patch.yml",
+                  "package.json",
+                  "README.md",
+                  "locale/*.json"
+              ],
+    "exports":  {
+                    ".":  "./lib/index.js",
+                    "./client":  "./lib/client.js",
+                    "./cordis.patch.yml":  "./cordis.patch.yml",
+                    "./package.json":  "./package.json",
+                    "./locale/*.json":  "./locale/*.json"
+                },
+    "dsh":  {
+                "bundle":  {
+                               "patch":  "./cordis.patch.yml"
+                           },
+                "client":  {
+                               "platform":  "web",
+                               "inject":  [
+                                              "@deepseek-ai/dsh-client-ui-renderer",
+                                              "@deepseek-ai/dsh-client-ui-conversation",
+                                              "@deepseek-ai/dsh-client-ui-model-selection",
+                                              "@deepseek-ai/dsh-client-ui-settings",
+                                              "@deepseek-ai/dsh-client-ui-plugin-manager",
+                                              "@deepseek-ai/dsh-client-ui-settings-plugins"
+                                          ]
+                           }
+            },
+    "license":  "MIT"
 }
