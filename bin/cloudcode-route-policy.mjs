@@ -7,7 +7,7 @@ export const CLOUD_CODE_ROUTES = [
   { id: 'karing-proxy', kind: 'proxy', name: 'Karing Full Proxy', host: '127.0.0.1', port: 3066, protocol: 'socks5' },
   { id: 'geohide-eu-doh', kind: 'smart-resolver', name: 'GeoHide EU Smart DNS', url: 'https://eu.geohide.ru/dns-query', bootstrapIps: ['5.175.161.3', '5.175.161.40', '37.221.93.141', '37.221.93.128', '45.13.237.213', '31.25.239.132', '143.20.64.192'], region: 'EU', hostnameFirst: true, parallelBootstrap: true },
   { id: 'geohide-us-doh', kind: 'smart-resolver', name: 'GeoHide US Smart DNS', url: 'https://us.geohide.ru/dns-query', bootstrapIps: ['192.255.159.240', '192.255.159.241', '107.175.76.134', '192.3.233.253'], region: 'US' },
-  { id: 'direct-system', kind: 'direct-system', name: 'Direct System (VPN/Zapret)' },
+  { id: 'direct-system', kind: 'direct-system', name: 'Прямой проход (Direct System)' },
   { id: 'ag-dns', kind: 'local-proxy', name: 'ag_dns (local)', host: '127.0.0.1' },
 ]
 
@@ -304,14 +304,14 @@ export function getCloudCodeRouteOptions() {
       ? ' - исключён из Auto на 6 ч: TLS-сбой'
       : ''
   return [
-    { id: 'auto', label: 'Авто (GeoHide EU → GeoHide US → Direct VPN)' },
+    { id: 'auto', label: 'Авто (GeoHide EU → GeoHide US → Прямой проход)' },
     ...allRoutes.map((route) => {
       const suffix = suffixFor(route)
       const customBadge = route.custom ? ' [Свой]' : ''
       if (route.kind === 'proxy') return { id: route.id, label: `${route.name}${customBadge} — SOCKS5 ${route.host}:${route.port}${suffix}` }
       if (route.kind === 'smart-resolver') return { id: route.id, label: `${route.name}${customBadge} — проксирующий DoH, регион ${route.region || 'EU/US'}${suffix}` }
       if (route.kind === 'resolver') return { id: route.id, label: `${route.name}${customBadge} — DoH-резолвер (не egress-прокси)${suffix}` }
-      if (route.kind === 'direct-system') return { id: route.id, label: `${route.name} — прямой выход (при активном VPN/Zapret)${suffix}` }
+      if (route.kind === 'direct-system') return { id: route.id, label: `${route.name} — прямое подключение без проксирования${suffix}` }
       if (route.kind === 'local-proxy') return { id: route.id, label: `ag_dns — локальный прокси (только при безопасном gate)${suffix}` }
       return { id: route.id, label: `${route.name}${customBadge}${suffix}` }
     }),
