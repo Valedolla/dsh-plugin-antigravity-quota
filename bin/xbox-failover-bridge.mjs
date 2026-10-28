@@ -5,9 +5,108 @@ import tls from 'node:tls'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { pipeline } from 'node:stream'
 import { randomBytes } from 'node:crypto'
 import { connectViaSocks5Proxy } from './socks5-proxy.mjs'
 import { buildCloudCodeRoutePlan, CLOUD_CODE_ROUTES, SMART_DOH_ROUTES, AUTO_ROUTE_IDS, readCloudCodeRouteHealth, readCloudCodeRoutePreference, recordCloudCodeRouteGenerationResult, recordIncidentSnapshot, readIncidentSnapshot, getAllCloudCodeRoutes, readCustomRoutes } from './cloudcode-route-policy.mjs'
+
+// Parent PID & Companion Watchdog: terminates orphan background bridge when DSH shuts down
+const parentPid = Number(process.env.DSH_PARENT_PID || process.ppid)
+const companionPid = Number(process.env.CLI_PROXY_PID || 0)
+
+function isProcessAlive(pid) {
+  if (!pid || pid <= 4) return false
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (err) {
+    return err.code === 'EPERM'
+  }
+}
+
+if (parentPid > 4) {
+  const watchdog = setInterval(() => {
+    if (!isProcessAlive(parentPid)) {
+      if (companionPid > 4) {
+        try { process.kill(companionPid, 'SIGKILL') } catch {}
+      }
+      process.exit(0)
+    }
+  }, 4000)
+  watchdog.unref()
+}
+
+// LoopGuard & Outbound Port Tracking
+const activeOutboundPorts = new Set()
+const connectBurstWindow = new Map()
+
+export function registerOutboundSocket(outboundSocket) {
+  outboundSocket.once('connect', () => {
+    if (outboundSocket.localPort) activeOutboundPorts.add(outboundSocket.localPort)
+  })
+  outboundSocket.once('close', () => {
+    if (outboundSocket.localPort) activeOutboundPorts.delete(outboundSocket.localPort)
+  })
+}
+
+const GEOHIDE_KNOWN_NODE_IPS = new Set([
+  '192.255.159.241', '107.175.76.134', '192.255.159.240', '192.3.233.253',
+  '159.194.200.33', '193.233.112.67', '193.233.112.68', '193.233.112.88',
+  '45.155.204.190', '37.230.192.51', '46.8.158.6', '5.175.161.3',
+  '5.175.161.40', '37.221.93.141', '37.221.93.128', '45.13.237.213',
+  '31.25.239.132', '143.20.64.192',
+])
+
+export function detectRoutingLoop(targetUrl, clientSocket) {
+  if (clientSocket.remotePort && activeOutboundPorts.has(clientSocket.remotePort)) {
+    return { loop: true, reason: `Direct loopback connection from localPort ${clientSocket.remotePort}` }
+  }
+  const [targetHost] = String(targetUrl || '').split(':')
+  if (targetHost === '127.0.0.1' || targetHost === 'localhost' || targetHost === '::1' || GEOHIDE_KNOWN_NODE_IPS.has(targetHost)) {
+    return { loop: true, reason: `TUN/Proxy loopback re-entry detected for ${targetHost}` }
+  }
+  const now = Date.now()
+  const history = (connectBurstWindow.get(targetHost) || []).filter((t) => now - t < 500)
+  history.push(now)
+  connectBurstWindow.set(targetHost, history)
+  if (history.length > 8) {
+    return { loop: true, reason: `Cascade CONNECT storm (>8 reqs/500ms) for ${targetHost}` }
+  }
+  return { loop: false }
+}
+
+const IDLE_SOCKET_TIMEOUT_MS = 180_000
+
+/**
+ * Safely binds client and upstream sockets in a bidirectional L4 tunnel via stream.pipeline.
+ * Guarantees zero descriptor leaks on error, client abort, timeout, or half-closed states.
+ */
+export function bindConnectTunnel(clientSocket, upstreamSocket) {
+  let cleanedUp = false
+  const destroyBoth = () => {
+    if (cleanedUp) return
+    cleanedUp = true
+    try { if (!clientSocket.destroyed) clientSocket.destroy() } catch {}
+    try { if (!upstreamSocket.destroyed) upstreamSocket.destroy() } catch {}
+  }
+
+  if (clientSocket.destroyed || !clientSocket.writable) {
+    destroyBoth()
+    return
+  }
+
+  for (const s of [clientSocket, upstreamSocket]) {
+    s.setNoDelay(true)
+    s.setKeepAlive(true, 30_000)
+    s.setTimeout(IDLE_SOCKET_TIMEOUT_MS)
+    s.once('timeout', destroyBoth)
+    s.once('error', destroyBoth)
+    s.once('close', destroyBoth)
+  }
+
+  pipeline(clientSocket, upstreamSocket, destroyBoth)
+  pipeline(upstreamSocket, clientSocket, destroyBoth)
+}
 
 const LISTEN_PORT = Number(process.env.ANTIGRAVITY_BRIDGE_PORT || 53130)
 const LEGACY_AG_DNS_PORT = Number(process.env.ANTIGRAVITY_BRIDGE_COMPAT_PORT || 53129)
@@ -596,6 +695,7 @@ async function establishFailoverTunnel(targetHostPort, diagnosticId = null) {
         else if (route.kind === 'local-proxy') socket = await connectViaAgDns(targetHostPort, 2200)
         else throw new Error(`Unsupported Cloud Code route kind: ${route.kind}`)
         recordTransportRoute(route, socket, diagnosticId)
+        registerOutboundSocket(socket)
         return socket
       } catch (error) {
         recordRouteFailure(route, error)
@@ -674,13 +774,6 @@ function readReportBody(req) {
 }
 
 const GEOHIDE_US_PROBE_HOST = 'daily-cloudcode-pa.googleapis.com'
-const GEOHIDE_KNOWN_NODE_IPS = new Set([
-  '192.255.159.241', '107.175.76.134', '192.255.159.240', '192.3.233.253',
-  '159.194.200.33', '193.233.112.67', '193.233.112.68', '193.233.112.88',
-  '45.155.204.190', '37.230.192.51', '46.8.158.6', '5.175.161.3',
-  '5.175.161.40', '37.221.93.141', '37.221.93.128', '45.13.237.213',
-  '31.25.239.132', '143.20.64.192',
-])
 
 function probeTlsSni(address, hostname, timeoutMs = 2200) {
   return new Promise((resolve) => {
@@ -877,6 +970,24 @@ const server = http.createServer(async (req, res) => {
 
 server.on('connect', async (req, clientSocket, head) => {
   clientSocket.on('error', () => {})
+
+  // LoopGuard: prevent routing loops from TUN devices, local proxies or burst storms
+  const loopCheck = detectRoutingLoop(req.url, clientSocket)
+  if (loopCheck.loop) {
+    recordIncidentSnapshot({
+      event: 'ROUTING_LOOP_DETECTED',
+      target: req.url || 'unknown',
+      stage: 'CONNECT_LOOP_GUARD',
+      errorType: 'LOOP_DETECTED',
+      errorMessage: loopCheck.reason,
+      suggestedAction: 'Break proxy loop: check if system VPN or TUN device routes local bridge traffic back into itself.',
+    })
+    try {
+      clientSocket.write('HTTP/1.1 508 Loop Detected\r\n\r\n')
+    } catch {}
+    clientSocket.destroy()
+    return
+  }
   const rawDiagnosticId = req.headers['x-antigravity-diagnostic-id']
   const diagnosticId = typeof rawDiagnosticId === 'string' && /^[a-zA-Z0-9_-]{12,64}$/u.test(rawDiagnosticId) ? rawDiagnosticId : null
   const [targetHostRaw, targetPortRaw] = String(req.url || '').split(':')
@@ -933,10 +1044,8 @@ server.on('connect', async (req, clientSocket, head) => {
     if (head && head.length > 0) {
       upstreamSocket.write(head)
     }
-    upstreamSocket.pipe(clientSocket)
-    clientSocket.pipe(upstreamSocket)
-    upstreamSocket.on('error', () => clientSocket.destroy())
-    clientSocket.on('close', () => upstreamSocket.destroy())
+    // Bind bidirectional tunnel via pipeline with safe descriptor cleanup
+    bindConnectTunnel(clientSocket, upstreamSocket)
   } catch (err) {
     if (diagnosticAttempt && lastDiagnosticConnect) {
       lastDiagnosticConnect = {

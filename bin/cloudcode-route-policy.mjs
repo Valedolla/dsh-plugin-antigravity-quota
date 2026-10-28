@@ -104,7 +104,8 @@ export function addCustomRoute(entry) {
       createdAt: entry.createdAt || new Date().toISOString(),
     }
   } else if (kind === 'proxy') {
-    const host = String(entry.host || '127.0.0.1').trim()
+    let host = String(entry.host || '127.0.0.1').trim()
+    if (host === 'localhost' || host === '::1') host = '127.0.0.1'
     const port = Number(entry.port)
     if (!Number.isInteger(port) || port <= 0 || port > 65535) {
       throw new Error('Некорректный порт SOCKS5 (1-65535)')

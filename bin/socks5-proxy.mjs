@@ -14,8 +14,12 @@ export function connectViaSocks5Proxy(proxyHost, proxyPort, targetHost, targetPo
     return Promise.reject(new Error('Invalid local SOCKS5 proxy endpoint'))
   }
 
+  // Force IPv4 loopback when 'localhost' is specified to prevent EADDRNOTAVAIL/ECONNREFUSED on ::1
+  const cleanProxyHost = (proxyHost === 'localhost' || proxyHost === '::1') ? '127.0.0.1' : proxyHost
+
   return new Promise((resolve, reject) => {
-    const socket = net.connect({ host: proxyHost, port: Number(proxyPort) })
+    const socket = net.connect({ host: cleanProxyHost, port: Number(proxyPort), family: cleanProxyHost === '127.0.0.1' ? 4 : undefined })
+    socket.setNoDelay(true)
     let settled = false
     let stage = 'greeting'
     let buffer = Buffer.alloc(0)
