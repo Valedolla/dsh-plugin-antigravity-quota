@@ -94,7 +94,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "bin\diagnose-routing.ps
 
 - [router-proxy/cli-proxy-api](https://github.com/router-proxy/cli-proxy-api) — локальный сервис трансляции вызовов OpenAI API в протокол Google Cloud Code.
   - SHA-256 (`cli-proxy-api.exe`): `46b2c842fe00743d5d9ded023d47cbc5fc8c43f6a0c9135d969b35a9f4b7f1d1`
-- [AGUnlocker](https://github.com/chel0vechek/AGUnlocker) — локальный компонент `ag_dns.exe` для альтернативной DNS/SNI маршрутизации.
+- [confeden/Antigravity](https://github.com/confeden/Antigravity) — компонент `ag_dns.exe` для локальной DNS/SNI маршрутизации.
 - [GeoHide](https://geohide.ru/) — публичные резолверы Smart DNS для обхода региональных ограничений.
 
 Все сторонние бинарные компоненты используются в оригинальном неизменном виде в соответствии с условиями их лицензий.
