@@ -786,6 +786,15 @@ async function probeGeoHideSmartDoh(routeId) {
 }
 
 const server = http.createServer(async (req, res) => {
+  // CSRF protection: block cross-origin browser requests from external websites to local bridge endpoints
+  const origin = req.headers['origin']
+  const secFetchSite = req.headers['sec-fetch-site']
+  if (origin || (secFetchSite && secFetchSite !== 'none' && secFetchSite !== 'same-origin')) {
+    res.writeHead(403, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ ok: false, error: 'Cross-origin browser requests to local bridge are forbidden' }))
+    return
+  }
+
   if (req.method === 'POST' && req.url === '/route-result') {
     try {
       const report = await readReportBody(req)

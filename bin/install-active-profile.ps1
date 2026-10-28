@@ -6,7 +6,8 @@ $targetRoot = Join-Path $env:USERPROFILE '.dsh\profiles\desktop\node_modules\dsh
 
 if (-not (Test-Path $packagePath)) { throw "Package metadata not found: $packagePath" }
 $pkg = Get-Content $packagePath -Raw | ConvertFrom-Json
-if ($pkg.version -ne '1.5.1') { throw "Expected package version 1.5.1, found $($pkg.version). Nothing was copied." }
+$expectedVersion = $pkg.version
+if (-not $expectedVersion) { throw "Unable to read version from $packagePath" }
 if (-not (Test-Path $bridgePath)) { throw "Bridge file not found: $bridgePath" }
 if ((Get-Content $bridgePath -Raw) -notmatch 'dsh-antigravity-unified-connect-v7') { throw 'Expected bridge build marker missing. Nothing was copied.' }
 if (-not (Test-Path $targetRoot)) { throw "Active profile plugin directory not found: $targetRoot. Nothing was copied." }
@@ -30,16 +31,30 @@ if ($lockedProcesses.Count -gt 0) { throw 'The active-profile bridge or cli-prox
 
 $backupRoot = "$targetRoot.backup-$(Get-Date -Format yyyyMMdd-HHmmss)"
 Copy-Item -LiteralPath $targetRoot -Destination $backupRoot -Recurse
-Copy-Item -Path (Join-Path $sourceRoot '*') -Destination $targetRoot -Recurse -Force
+
+# Clean copy: exclude git metadata, tests, and temporary backup artifacts
+$excludeItems = @('.git', 'tests', '*.bak*', '*.backup-*', '*.clean-bak*', 'node_modules')
+$sourceItems = Get-ChildItem -Path $sourceRoot | Where-Object {
+    $name = $_.Name
+    $skip = $false
+    foreach ($pat in $excludeItems) {
+        if ($name -like $pat) { $skip = $true; break }
+    }
+    -not $skip
+}
+
+foreach ($item in $sourceItems) {
+    Copy-Item -Path $item.FullName -Destination $targetRoot -Recurse -Force
+}
 
 $installedPackage = Get-Content (Join-Path $targetRoot 'package.json') -Raw | ConvertFrom-Json
 $installedBridge = Get-Content (Join-Path $targetRoot 'bin\xbox-failover-bridge.mjs') -Raw
-if ($installedPackage.version -ne '1.5.1' -or $installedBridge -notmatch 'dsh-antigravity-unified-connect-v7' -or $installedBridge -notmatch '/geohide-eu-doh-probe') {
+if ($installedPackage.version -ne $expectedVersion -or $installedBridge -notmatch 'dsh-antigravity-unified-connect-v7' -or $installedBridge -notmatch '/geohide-eu-doh-probe') {
     throw "Post-copy verification failed. Backup preserved at: $backupRoot"
 }
 
-Write-Output 'Active profile plugin updated to version 1.5.1.'
+Write-Output "Active profile plugin updated to version $expectedVersion."
 Write-Output ("Backup: {0}" -f $backupRoot)
 
-Write-Output 'Auto starts with GeoHide EU Smart DNS, then GeoHide US and the configured fallback DoH resolvers. GeoHide SNI gateways, Xbox, Karing and ag_dns remain outside Auto; route-health history was left unchanged.'
-Write-Output 'No OAuth tokens, passwords, raw auth JSON, or account identifiers were copied, read, or printed by this installer.' 
+Write-Output 'Auto starts with GeoHide EU Smart DNS, then GeoHide US and configured fallback DoH resolvers.'
+Write-Output 'No OAuth tokens, passwords, raw auth JSON, or account identifiers were copied, read, or printed by this installer.'
