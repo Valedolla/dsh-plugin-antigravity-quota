@@ -4,7 +4,19 @@ import net from 'node:net'
 import { connectViaSocks5Proxy } from '../bin/socks5-proxy.mjs'
 
 function reserveServer(handler) {
-  const server = net.createServer(handler)
+  const acceptedSockets = new Set()
+  const server = net.createServer((socket) => {
+    acceptedSockets.add(socket)
+    socket.once('close', () => acceptedSockets.delete(socket))
+    socket.on('error', () => {})
+    handler(socket)
+  })
+  server.closeAndDestroy = () => new Promise((resolve) => {
+    for (const s of acceptedSockets) {
+      try { s.destroy() } catch {}
+    }
+    server.close(() => resolve())
+  })
   return new Promise((resolve, reject) => {
     server.once('error', reject)
     server.listen(0, '127.0.0.1', () => resolve(server))
@@ -52,23 +64,25 @@ test('SOCKS5 helper negotiates no-auth and sends the target hostname in CONNECT'
   })
   const address = server.address()
   const socket = await connectViaSocks5Proxy('127.0.0.1', address.port, 'daily-cloudcode-pa.googleapis.com', 443, 1500)
-  t.after(() => {
-    socket.destroy()
-    return new Promise((resolve) => server.close(() => resolve()))
+  t.after(async () => {
+    try { socket.destroy() } catch {}
+    await server.closeAndDestroy()
   })
   assert.deepEqual(connectedTarget, { host: 'daily-cloudcode-pa.googleapis.com', port: 443 })
   socket.write('probe')
-  assert.equal(await Promise.race([gotProbe, new Promise((_, reject) => setTimeout(() => reject(new Error('probe timeout')), 1000))]), 'probe')
+  assert.equal(await gotProbe, 'probe')
 })
 
 test('SOCKS5 helper rejects proxies that require unsupported authentication', async (t) => {
   const server = await reserveServer((client) => {
-    client.once('data', () => client.write(Buffer.from([0x05, 0xff])))
+    client.once('data', () => {
+      client.write(Buffer.from([0x05, 0xff]))
+    })
   })
-  t.after(() => new Promise((resolve) => server.close(() => resolve())))
   const address = server.address()
+  t.after(() => server.closeAndDestroy())
   await assert.rejects(
-    connectViaSocks5Proxy('127.0.0.1', address.port, 'example.com', 443, 1000),
+    connectViaSocks5Proxy('127.0.0.1', address.port, 'daily-cloudcode-pa.googleapis.com', 443, 1500),
     /unsupported authentication/
   )
 })

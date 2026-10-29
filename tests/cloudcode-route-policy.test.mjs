@@ -136,7 +136,11 @@ test('route preference round-trips and the UI exposes resolvers distinctly', () 
 
 function request(port, method, requestPath, body = null) {
   return new Promise((resolve, reject) => {
-    const req = http.request({ host: '127.0.0.1', port, path: requestPath, method, headers: body ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } : {} }, (res) => {
+    const headers = {
+      Connection: 'close',
+      ...(body ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } : {}),
+    }
+    const req = http.request({ host: '127.0.0.1', port, path: requestPath, method, headers, agent: false }, (res) => {
       const chunks = []
       res.on('data', (chunk) => chunks.push(chunk))
       res.on('end', () => resolve({ statusCode: res.statusCode, body: Buffer.concat(chunks).toString('utf8') }))
