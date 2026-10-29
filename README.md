@@ -1,5 +1,7 @@
 # dsh-plugin-antigravity-quota
 
+[![CI & Release](https://github.com/Valedolla/dsh-plugin-antigravity-quota/actions/workflows/ci-release.yml/badge.svg)](https://github.com/Valedolla/dsh-plugin-antigravity-quota/actions/workflows/ci-release.yml)
+
 Плагин для DeepSeek Harness (DSH), обеспечивающий подключение к Google AI Pro (Gemini, Claude) через локальный мост, DNS/SNI туннели и поддержку Smart DNS.
 
 ![Общий вид виджета квот и маршрутов](docs/images/widget_overview.png)
