@@ -166,7 +166,10 @@ test('bridge status starts without a fabricated successful route', async (contex
   })
   let stderr = ''
   child.stderr.on('data', (chunk) => { stderr += chunk })
-  context.after(() => { if (!child.killed) child.kill() })
+  context.after(() => {
+    try { child.stderr.destroy() } catch {}
+    try { child.kill('SIGKILL') } catch {}
+  })
 
   let status
   for (let attempt = 0; attempt < 20; attempt++) {
@@ -205,7 +208,10 @@ test('legacy compatibility port forwards status to the single primary bridge', a
   })
   let stderr = ''
   child.stderr.on('data', (chunk) => { stderr += chunk })
-  context.after(() => { if (!child.killed) child.kill() })
+  context.after(() => {
+    try { child.stderr.destroy() } catch {}
+    try { child.kill('SIGKILL') } catch {}
+  })
 
   let primaryStatus
   for (let attempt = 0; attempt < 30; attempt++) {

@@ -20,28 +20,32 @@ test('LoopGuard: detects cascade CONNECT storm on the same host', () => {
   const dummySocket = { remotePort: 23456 }
   const target = 'daily-cloudcode-pa.googleapis.com:443'
   let triggered = false
-  for (let i = 0; i < 12; i++) {
+  // Threshold in bridge is 20 requests per 500ms
+  for (let i = 0; i < 25; i++) {
     const res = detectRoutingLoop(target, dummySocket)
     if (res.loop) {
       triggered = true
       break
     }
   }
-  assert.equal(triggered, true, 'Cascade burst must trigger LoopGuard circuit breaker')
+  assert.equal(triggered, true, 'Cascade burst (>20 reqs/500ms) must trigger LoopGuard circuit breaker')
 })
 
 test('bindConnectTunnel: closes both sockets when one terminates or errors', async () => {
+  const acceptedSockets = new Set()
   const server = net.createServer((sock) => {
+    acceptedSockets.add(sock)
     sock.on('error', () => {})
+    sock.once('close', () => acceptedSockets.delete(sock))
   })
-  await new Promise(r => server.listen(0, '127.0.0.1', r))
+  await new Promise((r) => server.listen(0, '127.0.0.1', r))
   const port = server.address().port
 
   const client = net.connect(port, '127.0.0.1')
   const upstream = net.connect(port, '127.0.0.1')
   await Promise.all([
-    new Promise(r => client.once('connect', r)),
-    new Promise(r => upstream.once('connect', r)),
+    new Promise((r) => client.once('connect', r)),
+    new Promise((r) => upstream.once('connect', r)),
   ])
 
   bindConnectTunnel(client, upstream)
@@ -50,8 +54,11 @@ test('bindConnectTunnel: closes both sockets when one terminates or errors', asy
 
   // Destroy client socket -> upstream socket must be automatically destroyed
   client.destroy()
-  await new Promise(r => setTimeout(r, 60))
+  await new Promise((r) => setTimeout(r, 60))
   assert.equal(upstream.destroyed, true)
 
-  server.close()
+  for (const s of acceptedSockets) {
+    try { s.destroy() } catch {}
+  }
+  await new Promise((r) => server.close(r))
 })
