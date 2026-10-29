@@ -5,10 +5,13 @@ import tls from 'node:tls'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { fileURLToPath } from 'node:url'
 import { pipeline } from 'node:stream'
 import { randomBytes } from 'node:crypto'
 import { connectViaSocks5Proxy } from './socks5-proxy.mjs'
 import { buildCloudCodeRoutePlan, CLOUD_CODE_ROUTES, SMART_DOH_ROUTES, AUTO_ROUTE_IDS, readCloudCodeRouteHealth, readCloudCodeRoutePreference, recordCloudCodeRouteGenerationResult, recordIncidentSnapshot, readIncidentSnapshot, getAllCloudCodeRoutes, readCustomRoutes } from './cloudcode-route-policy.mjs'
+
+const isRunningAsScript = Boolean(process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 
 // Parent PID & Companion Watchdog: terminates orphan background bridge when DSH shuts down
 const parentPid = Number(process.env.DSH_PARENT_PID || process.ppid)
@@ -24,7 +27,7 @@ function isProcessAlive(pid) {
   }
 }
 
-if (parentPid > 4) {
+if (isRunningAsScript && parentPid > 4) {
   const watchdog = setInterval(() => {
     if (!isProcessAlive(parentPid)) {
       if (companionPid > 4) {
@@ -1093,17 +1096,19 @@ server.on('error', (err) => {
   }
 })
 
-server.listen(LISTEN_PORT, LISTEN_HOST)
+if (isRunningAsScript) {
+  server.listen(LISTEN_PORT, LISTEN_HOST)
 
-// Compatibility bridge on 127.0.0.1:53129 -> 127.0.0.1:53130 so callers using the configured proxy port reach the active CONNECT bridge.
-const compatServer = net.createServer((clientSock) => {
-  const upstream = net.connect({ host: LISTEN_HOST, port: LISTEN_PORT })
-  clientSock.pipe(upstream)
-  upstream.pipe(clientSock)
-  clientSock.on('error', () => upstream.destroy())
-  upstream.on('error', () => clientSock.destroy())
-})
-compatServer.on('error', () => {})
-if (process.env.ANTIGRAVITY_BRIDGE_DISABLE_COMPAT !== '1') {
-  compatServer.listen(LEGACY_AG_DNS_PORT, LISTEN_HOST)
+  // Compatibility bridge on 127.0.0.1:53129 -> 127.0.0.1:53130 so callers using the configured proxy port reach the active CONNECT bridge.
+  const compatServer = net.createServer((clientSock) => {
+    const upstream = net.connect({ host: LISTEN_HOST, port: LISTEN_PORT })
+    clientSock.pipe(upstream)
+    upstream.pipe(clientSock)
+    clientSock.on('error', () => upstream.destroy())
+    upstream.on('error', () => clientSock.destroy())
+  })
+  compatServer.on('error', () => {})
+  if (process.env.ANTIGRAVITY_BRIDGE_DISABLE_COMPAT !== '1') {
+    compatServer.listen(LEGACY_AG_DNS_PORT, LISTEN_HOST)
+  }
 }
